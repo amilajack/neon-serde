@@ -130,5 +130,26 @@ describe('throwing functions', () => {
         }
         expect(() => native.expect_obj(obj))
             .toThrow(/Hi There prop c/);
-    })
+    });
+
+    test('string to long for char', () => {
+        const obj = {
+            a: 1,
+            b: [1, 2],
+            c: "abc",
+            d: false,
+            e: null,
+            f: null,
+            g: [9, false, "efg"],
+            h: 'This is to long to be a char',
+            i: "Empty",
+            j: {Tuple: [27, "hij"]},
+            k: {Struct: { a: 128, b: [9, 8, 7]}},
+            l: "jkl",
+            m: [0,1,2,3,4],
+            o: {Value: ['z', 'y', 'x']}
+        };
+        expect(() => native.expect_obj(obj))
+            .toThrow(/expected a character/);
+    });
 });

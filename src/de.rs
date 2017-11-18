@@ -2,6 +2,7 @@
 //! Deserialize a `JsValue` into a Rust data structure
 //!
 
+use cast;
 use errors::Error as LibError;
 use errors::ErrorKind;
 use errors::Result as LibResult;
@@ -61,7 +62,6 @@ impl<'x, 'd, 'a, 'j, S: Scope<'j>> serde::de::Deserializer<'x> for &'d mut Deser
             Variant::Undefined(_) => visitor.visit_unit(),
             Variant::Boolean(val) => visitor.visit_bool(val.value()),
             Variant::String(val) => visitor.visit_string(val.value()),
-            Variant::Integer(val) => visitor.visit_i64(val.value()), // TODO is u32 or i32,
             Variant::Number(val) => visitor.visit_f64(val.value()),
             Variant::Array(val) => {
                 let mut deserializer = JsArrayAccess::new(self.scope, val);
@@ -145,10 +145,109 @@ impl<'x, 'd, 'a, 'j, S: Scope<'j>> serde::de::Deserializer<'x> for &'d mut Deser
         visitor.visit_byte_buf(copy)
     }
 
+    /// Don't use forward_to_deserialize_any here because
+    /// we want the number to boolean cast to work
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        match self.input.variant() {
+            Variant::Null(_) |
+            Variant::Undefined(_) => visitor.visit_bool(false),
+            Variant::Boolean(val) => visitor.visit_bool(val.value()),
+            Variant::Number(val) => {
+                let num = val.value();
+                visitor.visit_bool(num != 0.0)
+            }
+            _ => Err(ErrorKind::UnableToCoerce("type cannot be made into bool"))?,
+        }
+    }
+
+    ///
+    /// Don't use forward_to_deserialize_any for integer types:
+    ///
+    /// i8 i16 i32 i64 u8 u16 u32 u64
+    ///
+    /// because node has no integer types
+    /// This causes serde to think everything is floats instead we check here
+    /// to make use the double from node can fit in the target type and round the numbers
+    ///
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::i8(input_num.value())?;
+        visitor.visit_i8(input_num_value)
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::i16(input_num.value())?;
+        visitor.visit_i16(input_num_value)
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::i32(input_num.value())?;
+        visitor.visit_i32(input_num_value)
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::i64(input_num.value())?;
+        visitor.visit_i64(input_num_value)
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::u8(input_num.value())?;
+        visitor.visit_u8(input_num_value)
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::u16(input_num.value())?;
+        visitor.visit_u16(input_num_value)
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::u32(input_num.value())?;
+        visitor.visit_u32(input_num_value)
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'x>,
+    {
+        let input_num = self.input.check::<js::JsNumber>()?;
+        let input_num_value = cast::u64(input_num.value())?;
+        visitor.visit_u64(input_num_value)
+    }
+
     forward_to_deserialize_any! {
        <V: Visitor<'x>>
-        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string
-        unit unit_struct seq tuple tuple_struct map struct identifier
+        f32 f64 char str string unit unit_struct seq
+        tuple tuple_struct map struct identifier
         newtype_struct ignored_any
     }
 }
